@@ -1,109 +1,107 @@
-# FritzBox DSL Status Reader & Phone Call Monitor
+# Fritzbox DSL Status Daemon mit Telegram-Benachrichtigung
 
-Ein Python-Skript zum Auslesen des DSL-Status und zur Überwachung von Anrufen von einer AVM FritzBox über das TR-064 Protokoll.
+Dieses Projekt überwacht den DSL-Status deiner Fritzbox und sendet bei einem Reconnect eine Benachrichtigung per Telegram. Es läuft als Node.js-Daemon im Docker-Container und lädt den Quellcode direkt aus dem GitHub-Repo.
 
-## Installation
+## Features
+- Überwachung des DSL-Status über das TR-064-Protokoll
+- Telegram-Benachrichtigung bei DSL-Reconnect (inkl. neuer IP und aktueller Down-/Upstream-Raten)
+- Läuft als Node.js-Daemon im Docker-Container (kein systemd nötig)
+- Quellcode wird im Dockerfile direkt aus dem GitHub-Repo geladen
+- Konfiguration über `.env` oder direkt im Compose-File
 
-### Voraussetzungen
-- Python 3.7 oder höher
-- pip (Python Package Manager)
+## Voraussetzungen
+- Fritzbox mit aktiviertem TR-064
+- Telegram-Bot und Chat-ID
+- Docker und Docker Compose
 
-### Setup
+## Einrichtung
 
-1. **Dependencies installieren:**
+### 1. Telegram-Bot erstellen
+- Schreibe an [@BotFather](https://t.me/BotFather) auf Telegram.
+- Erstelle einen neuen Bot und notiere den Bot-Token.
+- Sende deinem Bot eine Nachricht und rufe dann
+  `https://api.telegram.org/bot<DEIN_BOT_TOKEN>/getUpdates` auf, um die Chat-ID zu finden.
+
+### 2. TR-064 auf der Fritzbox aktivieren
+- Im Fritzbox-Menü unter "Heimnetz > Netzwerk > Netzwerkeinstellungen > Zugriff für Anwendungen zulassen" aktivieren.
+
+### 3. Konfiguration
+Lege eine `.env`-Datei an (oder nutze das `environment`-Feld im Compose-File):
+
+```
+FRITZBOX_IP=192.168.0.1
+FRITZBOX_USERNAME=dein_benutzername
+FRITZBOX_PASSWORD=dein_passwort
+TELEGRAM_BOT_TOKEN=DEIN_BOT_TOKEN_HIER
+TELEGRAM_CHAT_ID=DEINE_CHAT_ID_HIER
+DSL_QUERY_INTERVAL_MS=60000
+```
+
+Die Datei `.env` sollte nicht ins Repository eingecheckt werden und ist in `.gitignore` eingetragen.
+
+### 4. Start mit Docker
+
+Der Container lädt den Quellcode automatisch aus dem GitHub-Repo:
+
+```Dockerfile
+FROM node:24-bookworm
+WORKDIR /app
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/california444/fritzbox-dslstatus.git .
+RUN npm install --omit=dev
+CMD ["node", "read_fritzbox_dsl.js"]
+```
+
+Mit Docker Compose:
+
+#### Variante 1: Build aus lokalem Dockerfile
+
+```yaml
+docker-compose.yml:
+
+version: '3.8'
+services:
+  fritzbox-dslstatus:
+    image: california444/fritzbox-dslstatus:latest
+    container_name: fritzbox-dslstatus
+    # Alternativ zu den Variablen können die Variablen auch im .env file hier gesetzt werden:
+    # env_file:
+      # - .env
+    environment:
+      FRITZBOX_IP: "192.168.0.1"
+      FRITZBOX_USERNAME: "dein_benutzername"
+      FRITZBOX_PASSWORD: "dein_passwort"
+      TELEGRAM_BOT_TOKEN: "DEIN_BOT_TOKEN_HIER"
+      TELEGRAM_CHAT_ID: "DEINE_CHAT_ID_HIER"
+      DSL_QUERY_INTERVAL_MS: "60000"
+    restart: always
+    tty: true
+    stdin_open: true
+```
+
+Starte den Service mit:
+
 ```bash
-pip install -r requirements.txt
+docker-compose up -d
 ```
 
-2. **FritzBox-Anmeldedaten konfigurieren:**
+Logs anzeigen:
 
-Öffnen Sie beide `.py`-Dateien und passen Sie die Konstanten am Anfang an:
-
-```python
-FRITZBOX_IP = "192.168.178.1"          # IP-Adresse Ihrer FritzBox
-FRITZBOX_USERNAME = "admin"             # Benutzername
-FRITZBOX_PASSWORD = "password"          # Passwort
-FRITZBOX_PORT = 49000                   # Standard TR-064 Port
-```
-
-## Verwendung
-
-### 1. DSL-Status auslesen
-
-Das Skript direkt ausführen:
 ```bash
-python read_fritzbox_dsl.py
+docker-compose logs -f
 ```
 
-**Ausgabe:**
-```
-Discovering FritzBox services...
-✓ Using 3 default services
+Service stoppen:
 
-Discovered services:
-  - WANDSLInterfaceConfig
-    Type: urn:dslforum-org:service:WANDSLInterfaceConfig:1
-
-Connecting to FritzBox at 192.168.0.1...
-
-=== DSL Information (GetInfo) ===
-NewEnable: 1
-NewStatus: Up
-NewDataPath: Fast
-NewUpstreamCurrRate: 23360
-NewDownstreamCurrRate: 63679
-...
-```
-
-### 2. Anrufe monitoren
-
-Das Anruf-Monitor-Skript ausführen:
 ```bash
-python monitor_phone_calls.py
+docker-compose down
 ```
 
-Das Skript läuft kontinuierlich und protokolliert eingehende Anrufe mit Telefonnummer und Anrufer-Name.
-
-## Funktionen
-
-### read_fritzbox_dsl.py
-
-- **`discover_services()`** - Erkennt verfügbare Services auf der FritzBox
-- **`get_dsl_info()`** - Ruft die wichtigsten DSL-Informationen ab
-- **`soap_request()`** - Generische Funktion zum Senden von SOAP-Requests
-
-### monitor_phone_calls.py
-
-- **`get_phone_call_list()`** - Holt die Liste aller Anrufe von der FritzBox
-- **`monitor_phone_calls()`** - Überwacht FritzBox kontinuierlich auf neue Anrufe
-- **`log_call_event()`** - Formatiert und protokolliert Anruf-Ereignisse
-
-## TR-064 Protokoll
-
-TR-064 ist ein UPnP-basiertes Protokoll, das von AVM FritzBox Geräten bereitgestellt wird. Es ermöglicht Remote-Zugriff auf Gerätekonfiguration und Status über HTTP und SOAP.
-
-## Anforderungen für Telefonieüberwachung
-
-Die folgende Hardware und Konfiguration ist erforderlich:
-
-- **FritzBox mit Telefoniefunktion** (z.B. FRITZ!Box 7590, 7580, 6890)
-- **Konfigurierte Telefonleitungen/Erweiterungen**
-- **Aktive Telefonverbindung oder LS-Registrar**
-
-## Troubleshooting
-
-### DSL-Reader
-
-- Stellen Sie sicher, dass die FritzBox unter der angegebenen IP-Adresse erreichbar ist
-- Überprüfen Sie Benutzername und Passwort
-- Router-Standard-IP ist meist `192.168.178.1` oder `192.168.1.1`
-- TR-064 Service läuft auf Port `49000`
-
-### Phone Monitor
-
-- **Keine Anrufe werden erkannt**: Prüfen Sie, ob die FritzBox Telefoniefunktionen hat
-- **Fehler beim Service-Zugriff**: Der FritzBox-Benutzer benötigt Telefonie-Admin-Rechte
+## Hinweise
+- Der TR-064-Zugriff muss auf der Fritzbox aktiviert sein.
+- Die IP-Adresse, Benutzername und Passwort der Fritzbox ggf. anpassen.
+- Die Datei `.env` darf sensible Daten enthalten und ist durch `.gitignore` geschützt.
+- Bei Nutzung des fertigen Images muss dieses aktuell sein und den GitHub-Quellcode enthalten.
 
 ## Lizenz
-
 MIT
