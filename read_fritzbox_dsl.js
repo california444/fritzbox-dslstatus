@@ -3,7 +3,7 @@
 
 import 'dotenv/config';
 import DigestFetch from 'digest-fetch';
-import xml2js from 'xml2js';
+import { XMLParser } from 'fast-xml-parser';
 import TelegramBot from 'node-telegram-bot-api';
 
 const FRITZBOX_IP = process.env.FRITZBOX_IP || '192.168.0.1';
@@ -22,16 +22,31 @@ let lastUptime = null;
 
 function collectAllServices(device) {
   let services = [];
-  if (device.serviceList && device.serviceList[0] && device.serviceList[0].service) {
-    services = services.concat(device.serviceList[0].service);
+  // serviceList kann Array oder Objekt sein
+  if (device.serviceList) {
+    const sl = Array.isArray(device.serviceList) ? device.serviceList : [device.serviceList];
+    for (const s of sl) {
+      if (s.service) {
+        services = services.concat(Array.isArray(s.service) ? s.service : [s.service]);
+      }
+    }
   }
-  if (device.deviceList && device.deviceList[0] && device.deviceList[0].device) {
-    for (const sub of device.deviceList[0].device) {
-      services = services.concat(collectAllServices(sub));
+  // deviceList kann Array oder Objekt sein
+  if (device.deviceList) {
+    const dl = Array.isArray(device.deviceList) ? device.deviceList : [device.deviceList];
+    for (const d of dl) {
+      if (d.device) {
+        const devs = Array.isArray(d.device) ? d.device : [d.device];
+        for (const sub of devs) {
+          services = services.concat(collectAllServices(sub));
+        }
+      }
     }
   }
   return services;
 }
+
+const xmlParser = new XMLParser({ ignoreAttributes: false });
 
 async function discoverServices(ip, port) {
   const url = `http://${ip}:${port}/tr64desc.xml`;
@@ -39,14 +54,15 @@ async function discoverServices(ip, port) {
     const res = await client.fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const xml = await res.text();
-    const parsed = await xml2js.parseStringPromise(xml);
-    const rootDevice = parsed.root.device[0];
+    //console.log(xml);
+    const parsed = xmlParser.parse(xml);
+    const rootDevice = parsed.root.device[0] || parsed.root.device;
     const allServices = collectAllServices(rootDevice);
     if (!allServices.length) throw new Error('No services found in device description XML');
     const services = {};
     for (const svc of allServices) {
-      const serviceType = svc.serviceType[0];
-      const controlURL = svc.controlURL[0];
+      const serviceType = Array.isArray(svc.serviceType) ? svc.serviceType[0] : svc.serviceType;
+      const controlURL = Array.isArray(svc.controlURL) ? svc.controlURL[0] : svc.controlURL;
       const parts = serviceType.split(':');
       const name = parts.length > 1 ? parts[parts.length - 2] : serviceType;
       services[name] = { serviceType, controlURL };
@@ -72,7 +88,7 @@ async function soapRequest(ip, port, action, serviceType, controlURL, args = {})
   const res = await client.fetch(url, { method: 'POST', body, headers });
   if (!res.ok) throw new Error('SOAP HTTP ' + res.status);
   const xml = await res.text();
-  const parsed = await xml2js.parseStringPromise(xml, { explicitArray: false });
+  const parsed = xmlParser.parse(xml);
   return parsed;
 }
 

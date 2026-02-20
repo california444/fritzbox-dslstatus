@@ -1,3 +1,4 @@
+
 # Fritzbox DSL Status Daemon mit Telegram-Benachrichtigung
 
 Dieses Projekt überwacht den DSL-Status deiner Fritzbox und sendet bei einem Reconnect eine Benachrichtigung per Telegram. Es läuft als Node.js-Daemon im Docker-Container und lädt den Quellcode direkt aus dem GitHub-Repo.
@@ -8,6 +9,7 @@ Dieses Projekt überwacht den DSL-Status deiner Fritzbox und sendet bei einem Re
 - Läuft als Node.js-Daemon im Docker-Container (kein systemd nötig)
 - Quellcode wird im Dockerfile direkt aus dem GitHub-Repo geladen
 - Konfiguration über `.env` oder direkt im Compose-File
+- Nutzt fast-xml-parser für XML-Parsing (kein punycode-Warning)
 
 ## Voraussetzungen
 - Fritzbox mit aktiviertem TR-064
@@ -38,6 +40,13 @@ DSL_QUERY_INTERVAL_MS=60000
 ```
 
 Die Datei `.env` sollte nicht ins Repository eingecheckt werden und ist in `.gitignore` eingetragen.
+
+### 5. Abhängigkeiten
+Benötigt:
+- digest-fetch
+- fast-xml-parser
+- dotenv
+- node-telegram-bot-api
 
 ### 4. Start mit Docker
 
