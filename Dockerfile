@@ -4,13 +4,12 @@ FROM node:24-bookworm
 # Arbeitsverzeichnis
 WORKDIR /app
 
-# Abhängigkeiten kopieren und installieren
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+# Git installieren und Repo klonen
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/california444/fritzbox-dslstatus.git .
 
-# Quellcode und Konfiguration kopieren
-COPY read_fritzbox_dsl.js ./
-COPY .env ./
+# Abhängigkeiten installieren
+RUN npm install --omit=dev
 
 # Standard-Start: Node.js Daemon
 CMD ["node", "read_fritzbox_dsl.js"]
