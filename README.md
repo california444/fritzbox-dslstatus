@@ -6,10 +6,10 @@ Dieses Projekt überwacht den DSL-Status deiner Fritzbox und sendet bei einem Re
 ## Features
 - Überwachung des DSL-Status über das TR-064-Protokoll
 - Telegram-Benachrichtigung bei DSL-Reconnect (inkl. neuer IP und aktueller Down-/Upstream-Raten)
-- Läuft als Node.js-Daemon im Docker-Container (kein systemd nötig)
+- Läuft als Node.js-Daemon im Docker-Container
 - Quellcode wird im Dockerfile direkt aus dem GitHub-Repo geladen
 - Konfiguration über `.env` oder direkt im Compose-File
-- Nutzt fast-xml-parser für XML-Parsing (kein punycode-Warning)
+- Nutzt fast-xml-parser für XML-Parsing
 
 ## Voraussetzungen
 - Fritzbox mit aktiviertem TR-064
@@ -39,15 +39,6 @@ TELEGRAM_CHAT_ID=DEINE_CHAT_ID_HIER
 DSL_QUERY_INTERVAL_MS=60000
 ```
 
-Die Datei `.env` sollte nicht ins Repository eingecheckt werden und ist in `.gitignore` eingetragen.
-
-### 5. Abhängigkeiten
-Benötigt:
-- digest-fetch
-- fast-xml-parser
-- dotenv
-- node-telegram-bot-api
-
 ### 4. Start mit Docker
 
 Der Container lädt den Quellcode automatisch aus dem GitHub-Repo:
@@ -63,10 +54,8 @@ CMD ["node", "read_fritzbox_dsl.js"]
 
 Mit Docker Compose:
 
-#### Variante 1: Build aus lokalem Dockerfile
-
-```yaml
 docker-compose.yml:
+```yaml
 
 version: '3.8'
 services:
@@ -79,10 +68,11 @@ services:
     environment:
       FRITZBOX_IP: "192.168.0.1"
       FRITZBOX_USERNAME: "dein_benutzername"
+      # $ must be escaped with double dollar $$
       FRITZBOX_PASSWORD: "dein_passwort"
       TELEGRAM_BOT_TOKEN: "DEIN_BOT_TOKEN_HIER"
       TELEGRAM_CHAT_ID: "DEINE_CHAT_ID_HIER"
-      DSL_QUERY_INTERVAL_MS: "60000"
+      DSL_QUERY_INTERVAL_MS: "30000"
     restart: always
     tty: true
     stdin_open: true
