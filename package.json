@@ -1,0 +1,14 @@
+{
+  "name": "fritzbox-dslstatus",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Fritzbox DSL Status via TR-064 (Node.js)",
+  "main": "read_fritzbox_dsl.js",
+  "dependencies": {
+    "node-fetch": "^2.6.7",
+    "digest-fetch": "^4.0.1",
+    "xml2js": "^0.6.2",
+    "dotenv": "^16.0.3",
+    "node-telegram-bot-api": "^0.61.0"
+  }
+}
