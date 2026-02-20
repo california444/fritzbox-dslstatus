@@ -14,11 +14,11 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const INTERVAL_MS = parseInt(process.env.DSL_QUERY_INTERVAL_MS, 10) || 60000; // 1 Minute Standard
 
-const client = new DigestFetch(FRITZBOX_USERNAME, FRITZBOX_PASSWORD);
+const client = new DigestFetch(FRITZBOX_USERNAME, FRITZBOX_PASSWORD, { timeout: 5000 });
 const bot = TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID ? new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false }) : null;
 
-//let lastUptime = null;
-let lastUptime = 464238;
+let lastUptime = null;
+//let lastUptime = 464238;
 
 function collectAllServices(device) {
   let services = [];
