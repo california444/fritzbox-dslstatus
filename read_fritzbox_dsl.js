@@ -128,6 +128,8 @@ function startDaemon() {
   process.on('SIGTERM', () => { running = false; });
   process.on('SIGINT', () => { running = false; });
 
+  console.log('Fritzbox DSL Status Daemon started.');
+
   async function loop() {
     while (running) {
       try {
