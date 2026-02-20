@@ -9,7 +9,6 @@ Dieses Projekt überwacht den DSL-Status deiner Fritzbox und sendet bei einem Re
 - Läuft als Node.js-Daemon im Docker-Container
 - Quellcode wird im Dockerfile direkt aus dem GitHub-Repo geladen
 - Konfiguration über `.env` oder direkt im Compose-File
-- Nutzt fast-xml-parser für XML-Parsing
 
 ## Voraussetzungen
 - Fritzbox mit aktiviertem TR-064
@@ -36,7 +35,7 @@ FRITZBOX_USERNAME=dein_benutzername
 FRITZBOX_PASSWORD=dein_passwort
 TELEGRAM_BOT_TOKEN=DEIN_BOT_TOKEN_HIER
 TELEGRAM_CHAT_ID=DEINE_CHAT_ID_HIER
-DSL_QUERY_INTERVAL_MS=60000
+DSL_QUERY_INTERVAL_MS=30000
 ```
 
 ### 4. Start mit Docker
@@ -56,7 +55,6 @@ Mit Docker Compose:
 
 docker-compose.yml:
 ```yaml
-
 version: '3.8'
 services:
   fritzbox-dslstatus:
@@ -100,7 +98,6 @@ docker-compose down
 - Der TR-064-Zugriff muss auf der Fritzbox aktiviert sein.
 - Die IP-Adresse, Benutzername und Passwort der Fritzbox ggf. anpassen.
 - Die Datei `.env` darf sensible Daten enthalten und ist durch `.gitignore` geschützt.
-- Bei Nutzung des fertigen Images muss dieses aktuell sein und den GitHub-Quellcode enthalten.
 
 ## Lizenz
 MIT
