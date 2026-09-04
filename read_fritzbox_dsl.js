@@ -1,5 +1,5 @@
-// Fritzbox DSL Status via TR-064 (Node.js)
-// Benötigt: npm install digest-fetch xml2js dotenv
+// Fritzbox DSL Status Daemon (TR-064, Node.js)
+// Benötigte Pakete: digest-fetch, fast-xml-parser, dotenv, node-telegram-bot-api
 
 import 'dotenv/config';
 import DigestFetch from 'digest-fetch';
@@ -12,7 +12,7 @@ const FRITZBOX_PASSWORD = process.env.FRITZBOX_PASSWORD;
 const FRITZBOX_PORT = 49000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const INTERVAL_MS = parseInt(process.env.DSL_QUERY_INTERVAL_MS, 10) || 60000; // 1 Minute Standard
+const INTERVAL_MS = parseInt(process.env.DSL_QUERY_INTERVAL_MS, 10) || 30000;
 
 const client = new DigestFetch(FRITZBOX_USERNAME, FRITZBOX_PASSWORD, { timeout: 5000 });
 const bot = TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID ? new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false }) : null;
