@@ -30,3 +30,15 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "docker"
+
+  # GitHub-Actions in .github/workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"

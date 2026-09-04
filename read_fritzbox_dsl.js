@@ -2,6 +2,7 @@
 // Benötigte Pakete: digest-fetch, fast-xml-parser, dotenv, node-telegram-bot-api
 
 import 'dotenv/config';
+import { pathToFileURL } from 'node:url';
 import DigestFetch from 'digest-fetch';
 import { XMLParser } from 'fast-xml-parser';
 import TelegramBot from 'node-telegram-bot-api';
@@ -20,7 +21,7 @@ const bot = TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID ? new TelegramBot(TELEGRAM_BO
 let lastUptime = null;
 //let lastUptime = 464238;
 
-function collectAllServices(device) {
+export function collectAllServices(device) {
   let services = [];
   // serviceList kann Array oder Objekt sein
   if (device.serviceList) {
@@ -46,6 +47,18 @@ function collectAllServices(device) {
   return services;
 }
 
+export function buildServiceMap(allServices) {
+  const services = {};
+  for (const svc of allServices) {
+    const serviceType = Array.isArray(svc.serviceType) ? svc.serviceType[0] : svc.serviceType;
+    const controlURL = Array.isArray(svc.controlURL) ? svc.controlURL[0] : svc.controlURL;
+    const parts = serviceType.split(':');
+    const name = parts.length > 1 ? parts[parts.length - 2] : serviceType;
+    services[name] = { serviceType, controlURL };
+  }
+  return services;
+}
+
 const xmlParser = new XMLParser({ ignoreAttributes: false });
 
 async function discoverServices(ip, port) {
@@ -59,15 +72,7 @@ async function discoverServices(ip, port) {
     const rootDevice = parsed.root.device[0] || parsed.root.device;
     const allServices = collectAllServices(rootDevice);
     if (!allServices.length) throw new Error('No services found in device description XML');
-    const services = {};
-    for (const svc of allServices) {
-      const serviceType = Array.isArray(svc.serviceType) ? svc.serviceType[0] : svc.serviceType;
-      const controlURL = Array.isArray(svc.controlURL) ? svc.controlURL[0] : svc.controlURL;
-      const parts = serviceType.split(':');
-      const name = parts.length > 1 ? parts[parts.length - 2] : serviceType;
-      services[name] = { serviceType, controlURL };
-    }
-    return services;
+    return buildServiceMap(allServices);
   } catch (e) {
     console.error('Service discovery failed:', e.message);
     return {};
@@ -111,7 +116,7 @@ async function getDslRates(services) {
   }
 }
 
-function formatUptime(seconds) {
+export function formatUptime(seconds) {
   const s = parseInt(seconds, 10);
   if (isNaN(s) || s < 0) return 'Unknown';
   const d = Math.floor(s / 86400);
@@ -145,7 +150,10 @@ function startDaemon() {
   loop();
 }
 
-startDaemon();
+// Nur starten, wenn direkt ausgefuehrt (beim Import aus Tests passiert nichts).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  startDaemon();
+}
 
 async function queryAndLog() {
   const services = await discoverServices(FRITZBOX_IP, FRITZBOX_PORT);
