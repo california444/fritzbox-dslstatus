@@ -5,7 +5,7 @@ import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
 import DigestFetch from 'digest-fetch';
 import { XMLParser } from 'fast-xml-parser';
-import TelegramBot from 'node-telegram-bot-api';
+import { createTelegramNotifier, formatReconnectMessage } from './telegram_notifier.js';
 
 const FRITZBOX_IP = process.env.FRITZBOX_IP || '192.168.0.1';
 const FRITZBOX_USERNAME = process.env.FRITZBOX_USERNAME;
@@ -16,7 +16,13 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const INTERVAL_MS = parseInt(process.env.DSL_QUERY_INTERVAL_MS, 10) || 30000;
 
 const client = new DigestFetch(FRITZBOX_USERNAME, FRITZBOX_PASSWORD, { timeout: 5000 });
-const bot = TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID ? new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false }) : null;
+const notifier = TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID
+  ? createTelegramNotifier({
+      token: TELEGRAM_BOT_TOKEN,
+      chatId: TELEGRAM_CHAT_ID,
+      log: (m) => console.error(m)
+    })
+  : null;
 
 let lastUptime = null;
 //let lastUptime = 464238;
@@ -177,14 +183,14 @@ async function queryAndLog() {
       if (lastUptime !== null && parseInt(uptime, 10) < parseInt(lastUptime, 10)) {
         // DSL-Raten abfragen, Services wiederverwenden
         const dslRates = await getDslRates(services);
-          let msg = `🔄 DSL reconnect! Neue IP: ${ip}`;
-        if (dslRates.downstream && dslRates.upstream) {
-            msg += `\n⬇️ Downstream: ${dslRates.downstream} kbit/s\n⬆️ Upstream: ${dslRates.upstream} kbit/s`;
-        }
-        console.log(msg);
-        if (bot) {
-          bot.sendMessage(TELEGRAM_CHAT_ID, msg)
-            .catch(e => console.error('Telegram error:', e.message));
+        const reconnect = {
+          ip,
+          downstream: dslRates.downstream,
+          upstream: dslRates.upstream
+        };
+        console.log(formatReconnectMessage(reconnect));
+        if (notifier) {
+          notifier.sendReconnectNotification(reconnect);
         } else {
           console.log('Telegram-Konfiguration fehlt, keine Nachricht gesendet.');
         }
