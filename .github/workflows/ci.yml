@@ -38,3 +38,33 @@ jobs:
 
       - name: Tests
         run: npm test
+
+  telegram-live:
+    name: Telegram-Anbindung (live)
+    runs-on: ubuntu-latest
+    # Eigener Job statt in der Matrix: sonst eine Nachricht je Node-Version.
+    # Laeuft nicht bei Fork-PRs - dort sind keine Secrets verfuegbar.
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Versand gegen die echte Telegram-API prüfen
+        env:
+          TELEGRAM_LIVE_TEST: '1'
+          # Repository-Variablen statt Secrets: Dependabot-PRs sehen keine
+          # Actions-Secrets, wohl aber vars - so muss der Wert nur an einer
+          # Stelle gepflegt werden. Preis: vars werden in Logs nicht maskiert.
+          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+        run: npm test
