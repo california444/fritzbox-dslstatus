@@ -67,18 +67,35 @@ export function buildServiceMap(allServices) {
 
 const xmlParser = new XMLParser({ ignoreAttributes: false });
 
-async function discoverServices(ip, port) {
+/**
+ * Parst die Geraetebeschreibung (tr64desc.xml) zur Service-Tabelle.
+ * Reine Funktion ohne Netzwerkzugriff - deckt den XML-Parser mit ab,
+ * damit ein Bruch in fast-xml-parser im Test auffaellt und nicht erst
+ * im laufenden Betrieb.
+ */
+export function parseDeviceDescription(xml) {
+  const parsed = xmlParser.parse(xml);
+  const rootDevice = parsed.root.device[0] || parsed.root.device;
+  const allServices = collectAllServices(rootDevice);
+  if (!allServices.length) throw new Error('No services found in device description XML');
+  return buildServiceMap(allServices);
+}
+
+/** Holt den GetInfoResponse-Block aus einer SOAP-Antwort. Reine Funktion. */
+export function parseGetInfoResponse(xml) {
+  const parsed = xmlParser.parse(xml);
+  const resp = parsed?.['s:Envelope']?.['s:Body']?.['u:GetInfoResponse'];
+  if (!resp) throw new Error('GetInfoResponse missing in SOAP response');
+  return resp;
+}
+
+export async function discoverServices(ip, port) {
   const url = `http://${ip}:${port}/tr64desc.xml`;
   try {
     const res = await client.fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const xml = await res.text();
-    //console.log(xml);
-    const parsed = xmlParser.parse(xml);
-    const rootDevice = parsed.root.device[0] || parsed.root.device;
-    const allServices = collectAllServices(rootDevice);
-    if (!allServices.length) throw new Error('No services found in device description XML');
-    return buildServiceMap(allServices);
+    return parseDeviceDescription(xml);
   } catch (e) {
     console.error('Service discovery failed:', e.message);
     return {};
@@ -98,9 +115,7 @@ async function soapRequest(ip, port, action, serviceType, controlURL, args = {})
   const url = `http://${ip}:${port}${controlURL}`;
   const res = await client.fetch(url, { method: 'POST', body, headers });
   if (!res.ok) throw new Error('SOAP HTTP ' + res.status);
-  const xml = await res.text();
-  const parsed = xmlParser.parse(xml);
-  return parsed;
+  return parseGetInfoResponse(await res.text());
 }
 
 async function getDslRates(services) {
@@ -108,10 +123,9 @@ async function getDslRates(services) {
   const dsl = services.WANDSLInterfaceConfig;
   if (!dsl) return {};
   try {
-    const result = await soapRequest(
+    const resp = await soapRequest(
       FRITZBOX_IP, FRITZBOX_PORT, 'GetInfo', dsl.serviceType, dsl.controlURL
     );
-    const resp = result['s:Envelope']['s:Body']['u:GetInfoResponse'];
     return {
       downstream: resp.NewDownstreamCurrRate,
       upstream: resp.NewUpstreamCurrRate
@@ -169,10 +183,9 @@ async function queryAndLog() {
   }
   const svc = services.WANPPPConnection;
   try {
-    const result = await soapRequest(
+    const resp = await soapRequest(
       FRITZBOX_IP, FRITZBOX_PORT, 'GetInfo', svc.serviceType, svc.controlURL
     );
-    const resp = result['s:Envelope']['s:Body']['u:GetInfoResponse'];
     const ip = resp.NewExternalIPAddress;
     const uptime = resp.NewUptime;
     // if (ip) {
