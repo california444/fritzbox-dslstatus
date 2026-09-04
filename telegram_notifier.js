@@ -22,14 +22,18 @@ export function createTelegramNotifier({ token, chatId, log = () => {} }) {
     );
   }
 
+  /** Sendet Rohtext. Fehler werden geloggt, nicht geworfen -
+   *  ein Telegram-Ausfall darf den Daemon nicht beenden. */
+  function sendText(text) {
+    return api
+      .sendMessage({ chat_id: chatId, text })
+      .catch((e) => log('Telegram-Fehler: ' + e.message));
+  }
+
   return {
+    sendText,
     sendReconnectNotification({ ip, downstream, upstream }) {
-      return api
-        .sendMessage({
-          chat_id: chatId,
-          text: formatReconnectMessage({ ip, downstream, upstream })
-        })
-        .catch((e) => log('Telegram-Fehler: ' + e.message));
+      return sendText(formatReconnectMessage({ ip, downstream, upstream }));
     },
   };
 }
