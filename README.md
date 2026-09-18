@@ -1,13 +1,13 @@
 
 # Fritzbox DSL Status Daemon mit Telegram-Benachrichtigung
 
-Dieses Projekt überwacht den DSL-Status deiner Fritzbox und sendet bei einem Reconnect eine Benachrichtigung per Telegram. Es läuft als Node.js-Daemon im Docker-Container und lädt den Quellcode direkt aus dem GitHub-Repo.
+Dieses Projekt überwacht den DSL-Status deiner Fritzbox und sendet bei einem Reconnect eine Benachrichtigung per Telegram. Es läuft als Node.js-Daemon im Docker-Container.
 
 ## Features
 - Überwachung des DSL-Status über das TR-064-Protokoll
 - Telegram-Benachrichtigung bei DSL-Reconnect (inkl. neuer IP und aktueller Down-/Upstream-Raten)
 - Läuft als Node.js-Daemon im Docker-Container
-- Quellcode wird im Dockerfile direkt aus dem GitHub-Repo geladen
+- Fertiges Image für `linux/arm64` (Raspberry Pi) aus der GitHub Container Registry
 - Konfiguration über `.env` oder direkt im Compose-File
 
 ## Voraussetzungen
@@ -40,25 +40,22 @@ DSL_QUERY_INTERVAL_MS=30000
 
 ### 4. Start mit Docker
 
-Der Container lädt den Quellcode automatisch aus dem GitHub-Repo:
+Bei jedem Push auf `main` baut GitHub Actions das Image und veröffentlicht es
+unter `ghcr.io/california444/fritzbox-dslstatus`. Verfügbare Tags:
 
-```Dockerfile
-FROM node:24-bookworm
-WORKDIR /app
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
-RUN git clone https://github.com/california444/fritzbox-dslstatus.git .
-RUN npm install --omit=dev
-CMD ["node", "read_fritzbox_dsl.js"]
-```
+| Tag | Bedeutung |
+| --- | --- |
+| `latest` | aktueller Stand von `main` |
+| `sha-<commit>` | genau dieser Commit – für Rollbacks |
+| `<JJJJMMTT>` | Stand des jeweiligen Build-Tages |
 
 Mit Docker Compose:
 
 docker-compose.yml:
 ```yaml
-version: '3.8'
 services:
   fritzbox-dslstatus:
-    image: california444/fritzbox-dslstatus:latest
+    image: ghcr.io/california444/fritzbox-dslstatus:latest
     container_name: fritzbox-dslstatus
     # Alternativ zu den Variablen können die Variablen auch im .env file hier gesetzt werden:
     # env_file:
@@ -79,25 +76,45 @@ services:
 Starte den Service mit:
 
 ```bash
-docker-compose up -d
+docker compose up -d
+```
+
+Auf eine neue Version aktualisieren:
+
+```bash
+docker compose pull && docker compose up -d
 ```
 
 Logs anzeigen:
 
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 Service stoppen:
 
 ```bash
-docker-compose down
+docker compose down
 ```
+
+### 5. Selbst bauen (optional)
+
+```bash
+docker build -t fritzbox-dslstatus .
+```
+
+Der Build nimmt den Quellcode aus dem Arbeitsverzeichnis, nicht aus dem
+GitHub-Repo – das gebaute Image entspricht also dem ausgecheckten Stand.
 
 ## Hinweise
 - Der TR-064-Zugriff muss auf der Fritzbox aktiviert sein.
 - Die IP-Adresse, Benutzername und Passwort der Fritzbox ggf. anpassen.
-- Die Datei `.env` darf sensible Daten enthalten und ist durch `.gitignore` geschützt.
+- Die Datei `.env` darf sensible Daten enthalten und ist durch `.gitignore`
+  vom Repo und durch `.dockerignore` vom Image-Build ausgeschlossen.
+- Neue Packages in der GitHub Container Registry sind zunächst privat. Für
+  einen Pull ohne Anmeldung muss das Package in den Repo-Einstellungen auf
+  "public" gestellt werden, sonst ist auf dem Host ein
+  `docker login ghcr.io` mit einem PAT (Scope `read:packages`) nötig.
 
 ## Lizenz
 MIT
