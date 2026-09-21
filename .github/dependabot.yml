@@ -19,7 +19,7 @@ updates:
           - "minor"
           - "patch"
 
-  # Basis-Image im Dockerfile (node:24-bookworm)
+  # Basis-Image im Dockerfile (node:24-trixie)
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
