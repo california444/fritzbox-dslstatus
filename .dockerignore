@@ -1,0 +1,16 @@
+# Was nicht in den Build-Kontext gehört.
+# Wichtig: .gitignore hat auf den Docker-Build keinen Einfluss, nur diese
+# Datei. Ohne sie landen .env & Co. im Image, sobald jemand COPY . . nutzt.
+
+.env
+stack.env
+.git
+.github
+.gitignore
+node_modules
+npm-debug.log*
+test
+README.md
+Dockerfile
+.dockerignore
+.DS_Store
