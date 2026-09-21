@@ -3,6 +3,7 @@
 
 import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
 import DigestFetch from 'digest-fetch';
 import { XMLParser } from 'fast-xml-parser';
 import { createTelegramNotifier, formatReconnectMessage } from './telegram_notifier.js';
@@ -14,6 +15,21 @@ const FRITZBOX_PORT = 49000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const INTERVAL_MS = parseInt(process.env.DSL_QUERY_INTERVAL_MS, 10) || 30000;
+
+// Herkunft des laufenden Stands. Basis-Image und Commit setzt der
+// Docker-Build als ENV; ausserhalb des Containers bleiben sie leer.
+const PKG_VERSION = readPackageVersion();
+const BASE_IMAGE = process.env.APP_BASE_IMAGE || '';
+const REVISION = process.env.APP_REVISION || '';
+
+function readPackageVersion() {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+    return pkg.version || 'unbekannt';
+  } catch {
+    return 'unbekannt';
+  }
+}
 
 const client = new DigestFetch(FRITZBOX_USERNAME, FRITZBOX_PASSWORD, { timeout: 5000 });
 const notifier = TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID
@@ -148,14 +164,105 @@ export function formatUptime(seconds) {
   return `${m}m ${sec}s`;
 }
 
+/** Formatiert eine Datenrate. Die Fritzbox liefert kbit/s. */
+export function formatRate(kbitPerSecond) {
+  const k = parseInt(kbitPerSecond, 10);
+  if (isNaN(k) || k < 0) return 'unbekannt';
+  if (k >= 1000) return `${(k / 1000).toFixed(1).replace('.', ',')} Mbit/s`;
+  return `${k} kbit/s`;
+}
+
+/**
+ * Baut den Startbanner als Zeilenliste. Reine Funktion, damit sich das
+ * Format testen laesst, ohne den Daemon zu starten.
+ */
+export function formatStartupBanner({
+  version, nodeVersion, platform, baseImage, revision,
+  host, port, intervalMs, telegramAktiv, dsl = {}
+}) {
+  const zeilen = [`Fritzbox DSL Status Daemon ${version} gestartet`];
+
+  const laufzeit = [`Node ${nodeVersion}`, platform];
+  if (baseImage) laufzeit.push(`Image ${baseImage}`);
+  if (revision) laufzeit.push(`Commit ${revision.slice(0, 7)}`);
+  zeilen.push(`  Laufzeit  : ${laufzeit.join(', ')}`);
+
+  zeilen.push(`  Fritzbox  : ${host}:${port}, Abfrage alle ${Math.round(intervalMs / 1000)} s`);
+  zeilen.push(`  Telegram  : ${telegramAktiv ? 'aktiv' : 'nicht konfiguriert'}`);
+
+  if (dsl.downstream || dsl.upstream) {
+    zeilen.push(`  DSL-Rate  : ⬇️ ${formatRate(dsl.downstream)}  ⬆️ ${formatRate(dsl.upstream)}`);
+  } else {
+    zeilen.push('  DSL-Rate  : nicht ermittelbar');
+  }
+
+  if (dsl.uptime) {
+    const ip = dsl.ip ? `, IP ${dsl.ip}` : '';
+    zeilen.push(`  Verbindung: seit ${formatUptime(dsl.uptime)} aktiv${ip}`);
+  } else {
+    zeilen.push('  Verbindung: Status nicht ermittelbar');
+  }
+
+  return zeilen;
+}
+
+/** Fragt IP, Uptime und aktuelle Raten in einem Rutsch ab. */
+export async function collectDslStatus(services) {
+  const svc = services.WANPPPConnection;
+  if (!svc) return {};
+  try {
+    const resp = await soapRequest(
+      FRITZBOX_IP, FRITZBOX_PORT, 'GetInfo', svc.serviceType, svc.controlURL
+    );
+    const raten = await getDslRates(services);
+    return { ip: resp.NewExternalIPAddress, uptime: resp.NewUptime, ...raten };
+  } catch (e) {
+    console.error('Startabfrage fehlgeschlagen:', e.message);
+    return {};
+  }
+}
+
+/**
+ * Loggt beim Start, welcher Stand laeuft und wie die Leitung gerade steht.
+ * Schlaegt die Abfrage fehl, wird der Banner trotzdem ausgegeben - der
+ * Daemon darf daran nicht scheitern.
+ */
+async function logStartupStatus() {
+  const services = await discoverServices(FRITZBOX_IP, FRITZBOX_PORT);
+  const dsl = await collectDslStatus(services);
+
+  // Ausgangswert setzen, damit der erste Schleifendurchlauf keinen
+  // Reconnect meldet, nur weil vorher nichts bekannt war.
+  if (dsl.uptime) lastUptime = dsl.uptime;
+
+  for (const zeile of formatStartupBanner({
+    version: PKG_VERSION,
+    nodeVersion: process.version,
+    platform: `${process.platform}/${process.arch}`,
+    baseImage: BASE_IMAGE,
+    revision: REVISION,
+    host: FRITZBOX_IP,
+    port: FRITZBOX_PORT,
+    intervalMs: INTERVAL_MS,
+    telegramAktiv: Boolean(notifier),
+    dsl
+  })) {
+    console.log(zeile);
+  }
+}
+
 function startDaemon() {
   let running = true;
   process.on('SIGTERM', () => { running = false; });
   process.on('SIGINT', () => { running = false; });
 
-  console.log('Fritzbox DSL Status Daemon started.');
-
   async function loop() {
+    try {
+      await logStartupStatus();
+    } catch (e) {
+      console.error('Startstatus konnte nicht ermittelt werden:', e.message);
+    }
+
     while (running) {
       try {
         await queryAndLog();
