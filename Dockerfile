@@ -1,5 +1,5 @@
 # Dockerfile für Fritzbox DSL Status Daemon (Node.js)
-FROM node:24-trixie
+FROM node:25-trixie
 
 # Arbeitsverzeichnis
 WORKDIR /app
