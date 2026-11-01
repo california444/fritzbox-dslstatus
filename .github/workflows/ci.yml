@@ -17,8 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 24 = Version aus dem Dockerfile, 22 = aktuelles LTS
-        node-version: ['22', '24']
+        # 26 = Version aus dem Dockerfile (aktives LTS), 24 = vorheriges LTS
+        node-version: ['24', '26']
 
     steps:
       - name: Checkout
@@ -53,7 +53,7 @@ jobs:
       - name: Node.js einrichten
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
           cache: npm
 
       - name: Abhängigkeiten installieren

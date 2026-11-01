@@ -2,7 +2,7 @@
 
 # Basis-Image als ARG, damit es nur an einer Stelle steht und der Daemon
 # es zur Laufzeit ausgeben kann.
-ARG BASE_IMAGE=node:24-trixie-slim
+ARG BASE_IMAGE=node:26-trixie-slim
 FROM ${BASE_IMAGE}
 
 ENV NODE_ENV=production
