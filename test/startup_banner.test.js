@@ -44,10 +44,10 @@ test('Image und Commit erscheinen nur, wenn der Build sie gesetzt hat', () => {
 
   const mit = formatStartupBanner({
     ...basis,
-    baseImage: 'node:24-trixie-slim',
+    baseImage: 'node:26-trixie-slim',
     revision: '4f3c2b1a9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b'
   })[1];
-  assert.match(mit, /Image node:24-trixie-slim/);
+  assert.match(mit, /Image node:26-trixie-slim/);
   assert.match(mit, /Commit 4f3c2b1/);
   // nur die Kurzform, nicht der volle SHA
   assert.doesNotMatch(mit, /4f3c2b1a9e8d/);
